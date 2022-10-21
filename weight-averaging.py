@@ -11,14 +11,14 @@ bl_info = {
     "support": "TESTING",
     "doc_url": "",
     "tracker_url": "",
-    "category": "Rigging"
+    "category": "Object"
 }
 
 
 class INWERWM_OT_WeightAveraging(bpy.types.Operator):
-    bl_idname: str = "rigging.weight_averaging.inwerwm"
-    bl_label: str = "Average weights"
-    bl_description: str = "Averages the weights of the selected vertices."
+    bl_idname: str = "object.weight_averaging"
+    bl_label: str = "Average Weights"
+    bl_description: str = "Averages the weights of the selected vertices"
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context: bpy.types.Context):
@@ -39,11 +39,11 @@ classes = [
 def register():
     for c in classes:
         bpy.utils.register_class(c)
-    bpy.types.VIEW3D_MT_mesh_add.append(draw_menu)
+    bpy.types.VIEW3D_MT_edit_mesh_weights.append(draw_menu)
 
 
 def unregister():
-    bpy.types.VIEW3D_MT_mesh_add.remove(draw_menu)
+    bpy.types.VIEW3D_MT_edit_mesh_weights.remove(draw_menu)
     for c in classes:
         bpy.utils.unregister_class(c)
 
