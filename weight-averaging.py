@@ -1,6 +1,5 @@
 import bpy
 from bpy.props import EnumProperty
-import bmesh
 
 bl_info = {
     "name": "Weight Averaging",
@@ -30,6 +29,10 @@ word_map = {
         ("*", "Active Layer"): "Active Layer",
         ("*", "Only averaging active data layer"): "Only averaging active data layer",
         ("*", "There is no vertex groups"): "There is no vertex groups",
+        (
+            "*",
+            "Verteices to be averaged is not selected",
+        ): "Verteices to be averaged is not selected",
     },
     "ja_JP": {
         ("*", "Average Weights"): "平均化",
@@ -40,7 +43,7 @@ word_map = {
         ("*", "Averaging all data layers"): "全データレイヤーを平均化します",
         ("*", "Active Layer"): "アクティブレイヤー",
         ("*", "Only averaging active data layer"): "アクティブデータレイヤーのみ平均化します",
-        ("*", "There is no vertex groups"): "頂点グループが存在しません",
+        ("*", "Verteices to be averaged is not selected"): "平均化対象頂点が選択されていません",
     },
 }
 
@@ -62,8 +65,14 @@ class INWERWM_OT_WeightAveraging(bpy.types.Operator):
     )
 
     def execute(self, context: bpy.types.Context):
+        # reflesh object data
+        bpy.ops.object.mode_set(mode="OBJECT")
+        bpy.ops.object.mode_set(mode="EDIT")
 
-        vgroups = context.object.vertex_groups
+        target_object = context.edit_object
+
+        # load data of vertex groups
+        vgroups = target_object.vertex_groups
         if len(vgroups) == 0:  # type: ignore
             self.report({"ERROR"}, "There is no vertex groups")
             return {"CANCELLED"}
@@ -71,15 +80,37 @@ class INWERWM_OT_WeightAveraging(bpy.types.Operator):
             [vgroups.active] if self.target_layer == "Active" else [g for g in vgroups]  # type: ignore
         )
 
-        weight_dict = {layer.index: 0 for layer in target_layers}
+        weight_dict = {layer.index: 0.0 for layer in target_layers}
 
-        mesh = bmesh.from_edit_mesh(context.active_object.data)  # type: ignore
+        # load selected vertices
         selected_vertices: list[bpy.types.MeshVertex] = [
-            v for v in context.active_object.data.vertices if v.index in [v.index for v in mesh.verts if v.select]  # type: ignore
+            v for v in target_object.data.vertices if v.select  # type: ignore
         ]
+        num_of_selected_vertices = len(selected_vertices)
+        if num_of_selected_vertices < 2:
+            self.report({"WARNING"}, "Verteices to be averaged is not selected")
+            return {"CANCELLED"}
 
+        # aggregate the weights for each vertex group
         for vertex in selected_vertices:
-            print(vertex.index)
+            for group in vertex.groups:
+                if group.group in weight_dict.keys():
+                    print(
+                        f"vertex[{vertex.index}].groups[{str(group.group)}].weight += {group.weight}"
+                    )
+                    weight_dict[group.group] += group.weight
+
+        for groupIndex in weight_dict:
+            weight_dict[groupIndex] /= num_of_selected_vertices
+
+        # update weights
+        terget_indices = [v.index for v in selected_vertices]
+        bpy.ops.object.mode_set(mode="OBJECT")
+        for groupIndex in weight_dict:
+            target_object.vertex_groups[groupIndex].add(
+                terget_indices, weight_dict[groupIndex], "REPLACE"
+            )
+        bpy.ops.object.mode_set(mode="EDIT")
 
         return {"FINISHED"}
 
