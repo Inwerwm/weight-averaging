@@ -1,5 +1,6 @@
 import bpy
 from bpy.props import EnumProperty
+import bmesh
 
 bl_info = {
     "name": "Weight Averaging",
@@ -63,20 +64,20 @@ class INWERWM_OT_WeightAveraging(bpy.types.Operator):
     def execute(self, context: bpy.types.Context):
 
         vgroups = context.object.vertex_groups
-
-        if isinstance(vgroups, bpy.types.bpy_prop_collection):
-            # Eliminate this type from type analysis
-            return {"CANCELLED"}
-
         if len(vgroups) == 0:  # type: ignore
             self.report({"ERROR"}, "There is no vertex groups")
             return {"CANCELLED"}
-
         target_layers: list[bpy.types.VertexGroup] = (
-            [vgroups.active] if self.target_layer == "Active" else [g for g in vgroups]
+            [vgroups.active] if self.target_layer == "Active" else [g for g in vgroups]  # type: ignore
         )
 
-        selected_vertices = [v for v in context.mesh.vertices if v.select]
+        weight_dict = {layer.index: 0 for layer in target_layers}
+
+        mesh = bmesh.from_edit_mesh(context.active_object.data)  # type: ignore
+        selected_vertices: list[bpy.types.MeshVertex] = [
+            v for v in context.active_object.data.vertices if v.index in [v.index for v in mesh.verts if v.select]  # type: ignore
+        ]
+
         for vertex in selected_vertices:
             print(vertex.index)
 
